@@ -84,7 +84,7 @@
       segments.push({project:selected.id,start,end,notes:''});renderSegments();changed();
     }catch(e){notice(e.message);}
   };
-  function renderSegments(){
+  function renderSegments(focus){
     $('segments').replaceChildren();$('segment-count').textContent=`${segments.length} / 12`;
     $('total-duration').textContent=`${seconds(segments.reduce((sum,s)=>sum+s.end-s.start,0))} / 120s`;
     if(!segments.length){const li=document.createElement('li');li.className='sequence-empty';li.textContent='Your first cut starts here. Add a segment from a reference above.';$('segments').append(li);}
@@ -94,13 +94,18 @@
       const times=document.createElement('p');times.className='segment-range';times.textContent=`${seconds(segment.start)} → ${seconds(segment.end)} · ${seconds(segment.end-segment.start)}`;
       const label=document.createElement('label');label.textContent='Direction for this segment';const notes=document.createElement('input');notes.maxLength=200;notes.placeholder='e.g. Use my product name';notes.value=segment.notes;notes.addEventListener('input',()=>{segment.notes=notes.value;changed();});label.append(notes);
       const actions=document.createElement('div');actions.className='segment-actions';
-      function action(text,name,fn,disabled=false){const button=document.createElement('button');button.type='button';button.textContent=text;button.setAttribute('aria-label',`${name} segment ${index+1}`);button.disabled=disabled;button.onclick=fn;actions.append(button);}
-      const swap=offset=>{stopSequence();[segments[index],segments[index+offset]]=[segments[index+offset],segments[index]];renderSegments();changed();};
+      function action(text,name,fn,disabled=false){const button=document.createElement('button');button.type='button';button.textContent=text;button.dataset.action=name;button.setAttribute('aria-label',`${name} segment ${index+1}`);button.disabled=disabled;button.onclick=fn;actions.append(button);}
+      const swap=offset=>{stopSequence();[segments[index],segments[index+offset]]=[segments[index+offset],segments[index]];renderSegments({index:index+offset,action:offset<0?'Move earlier':'Move later'});changed();};
       action('←','Move earlier',()=>swap(-1),index===0);action('→','Move later',()=>swap(1),index===segments.length-1);
       action('▶','Preview',()=>{if(job){select(job,segment.start,segment.end);void playRange(segment.start,segment.end);}},!job);
-      action('×','Remove',()=>{stopSequence();segments.splice(index,1);renderSegments();changed();});
+      action('×','Remove',()=>{stopSequence();segments.splice(index,1);renderSegments({index,action:'Remove'});changed();});
       li.append(title,times,label,actions);$('segments').append(li);
     });updateButtons();
+    if(focus){
+      const other={'Move earlier':'Move later','Move later':'Move earlier'}, row=$('segments').children[Math.min(focus.index,segments.length-1)];
+      const pick=name=>row&&row.querySelector(`[data-action="${name}"]:not([disabled])`);
+      (pick(focus.action)||pick(other[focus.action])||$('add-segment')).focus();
+    }
   }
   function playSequence(index){
     const segment=segments[index];if(!segment){stopSequence();return;}
